@@ -8,8 +8,8 @@ from facefusion.typing import OutputVideoEncoder, OutputVideoPreset, Fps
 from facefusion.filesystem import is_image, is_video
 from facefusion.uis.core import get_ui_components, register_ui_component
 from facefusion.vision import detect_image_resolution, create_image_resolutions, detect_video_fps, detect_video_resolution, create_video_resolutions, pack_resolution
-
-OUTPUT_PATH_TEXTBOX : Optional[gradio.Textbox] = None
+from facefusion.uis.components.config_saving import OUTPUT_PATH_TEXTBOX
+#OUTPUT_PATH_TEXTBOX : Optional[gradio.Textbox] = None
 OUTPUT_IMAGE_QUALITY_SLIDER : Optional[gradio.Slider] = None
 OUTPUT_IMAGE_RESOLUTION_DROPDOWN : Optional[gradio.Dropdown] = None
 OUTPUT_VIDEO_ENCODER_DROPDOWN : Optional[gradio.Dropdown] = None
@@ -20,7 +20,6 @@ OUTPUT_VIDEO_FPS_SLIDER : Optional[gradio.Slider] = None
 
 
 def render() -> None:
-	global OUTPUT_PATH_TEXTBOX
 	global OUTPUT_IMAGE_QUALITY_SLIDER
 	global OUTPUT_IMAGE_RESOLUTION_DROPDOWN
 	global OUTPUT_VIDEO_ENCODER_DROPDOWN

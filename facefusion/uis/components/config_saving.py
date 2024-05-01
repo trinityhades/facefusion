@@ -2,113 +2,120 @@ from typing import Tuple, Optional, List, Dict
 from time import sleep
 import gradio
 from argparse import ArgumentParser, HelpFormatter
+from configparser import ConfigParser
+from types import ModuleType
 import os
+from facefusion.execution import encode_execution_providers
 import facefusion.globals
 import facefusion.choices
-from facefusion.uis.components import refresh
-from facefusion import process_manager, wording
-from facefusion.core import conditional_process
-from facefusion.config import get_config
-from facefusion.memory import limit_system_memory
-from facefusion.normalizer import normalize_output_path
-from facefusion.uis.core import get_ui_component, register_ui_component
-from facefusion.filesystem import clear_temp, is_image, is_video, list_directory
-CONFIG_SAVE_DROPDOWN: Optional[gradio.Dropdown] = None
+import facefusion.processors.frame.globals as frameglobals
+import facefusion.processors.frame.choices as framechoices
+from facefusion import wording
+
 CONFIG_SAVE_BUTTON: Optional[gradio.Button] = None
 CONFIG_SAVE_TEXTBOX: Optional[gradio.Textbox] = None
-CONFIG_DEBUG_BUTTON: Optional[gradio.Button] = None
-OUTPUT_PATH_TEXTBOX: Optional[gradio.Textbox] = None
 
-saved_config_options = ['FaceFusion.ini']
-config_files_path = list_directory('configs')
-print(config_files_path)
-OUTPUT_PATH_TEXTBOX = gradio.Textbox(
-		label = wording.get('uis.output_path_textbox'),
-		value = facefusion.globals.output_path,
-		max_lines = 1
-	)
+
 def render():
-    global CONFIG_DEBUG_BUTTON, CONFIG_SAVE_DROPDOWN, CONFIG_SAVE_TEXTBOX, CONFIG_SAVE_BUTTON
-    CONFIG_DEBUG_BUTTON = gradio.Button(value = 'DEBUG', 
-                                        variant = 'secondary', 
-                                        size =  'sm')
-    CONFIG_SAVE_DROPDOWN = gradio.Dropdown(label = 'CONFIG DROPDOWN',
-                                           choices = config_files_path, 
-                                           value = facefusion.globals.active_config_file)
-    CONFIG_SAVE_TEXTBOX = gradio.Textbox(label = 'CONFIG FILE', 
+    global CONFIG_SAVE_TEXTBOX, CONFIG_SAVE_BUTTON
+    CONFIG_SAVE_TEXTBOX = gradio.Textbox(label = 'NEW CONFIG FILE', 
                                          value = '', 
                                          max_lines = 1
                                          )
-    CONFIG_SAVE_BUTTON = gradio.Button(value = 'Launch With New Config',
+    CONFIG_SAVE_BUTTON = gradio.Button(value = 'SAVE CONFIG',
                                        variant = 'primary',
                                        size = 'sm')
-    register_ui_component('config_save_textbox', CONFIG_SAVE_TEXTBOX)
-    register_ui_component('config_save_button', CONFIG_SAVE_BUTTON)
-    register_ui_component('config_save_buttondropdown', CONFIG_SAVE_DROPDOWN)
     
-
 
 def listen():
-    CONFIG_SAVE_DROPDOWN.change(update_active_config_file,
-                                inputs = CONFIG_SAVE_DROPDOWN)
-    CONFIG_SAVE_TEXTBOX.change(update_config_name,
-                               inputs = CONFIG_SAVE_TEXTBOX)
-    CONFIG_SAVE_TEXTBOX.submit(update_saved_config_options,
-                             inputs = [CONFIG_SAVE_TEXTBOX],
-                             outputs = [CONFIG_SAVE_DROPDOWN])
-    CONFIG_SAVE_BUTTON.click(relaunch)
-    CONFIG_DEBUG_BUTTON.click(print(config_files_path))
+    CONFIG_SAVE_BUTTON.click(create_new_config_file,inputs = CONFIG_SAVE_TEXTBOX)
+    CONFIG_SAVE_BUTTON.click(fn=clear_text, outputs=CONFIG_SAVE_TEXTBOX)
 
 
-def update_config_name(CONFIG_SAVE_TEXTBOX = None):
-    facefusion.globals.textbox = CONFIG_SAVE_TEXTBOX
-    print('textbox: ' + facefusion.globals.textbox)
+def clear_text():
+    return gradio.update(value='')
 
 
-def update_active_config_file(active_config_file = str):
-    facefusion.globals.active_config_file = active_config_file
-    print('active config: ' + facefusion.globals.active_config_file)
-    active_config_file_with_extension = active_config_file + '.ini'
-    facefusion.globals.config_path = active_config_file_with_extension
-    print(active_config_file_with_extension)
-    refresh.apply_config(active_config_file_with_extension)
-    OUTPUT_PATH_TEXTBOX = gradio.Textbox(
-		label = wording.get('uis.output_path_textbox'),
-		value = facefusion.globals.output_path,
-		max_lines = 1
-	)
-    register_ui_component('output_path_textbox', OUTPUT_PATH_TEXTBOX)
-    
-    
-
-def update_saved_config_options(category = None):
-    #config_files_path.append(facefusion.globals.textbox)
-    create_new_config_file(facefusion.globals.textbox + '.ini')
-    update_active_config_file(facefusion.globals.textbox)
-    #update_dropdown()
-    #update_textbox()
-    options = list_directory('configs')
-    return gradio.Dropdown(choices = options, value = facefusion.globals.textbox, interactive = True)
-
-def relaunch():
-    refresh.run()
-
-def update_textbox():
-    return gradio.Textbox(value = '')
-
-def update_dropdown():
-    options = list_directory('configs')
-    return gradio.Dropdown(choices = options, interactive = True)
+def save_info(filepath: str)-> None:
+    gradio.Info(wording.get('config_file_saved').format(filepath = filepath))
 
 def create_new_config_file(filename: str) -> None:
-    config = get_config()
+    if not filename.endswith('.ini'):
+        filename = filename + '.ini'
     config_dir = 'configs'
+    modules = [facefusion.globals,facefusion.choices,frameglobals,framechoices]
     os.makedirs(config_dir, exist_ok=True)
     filepath = os.path.join(config_dir, filename)
-    # Write the configuration to a file
+    config = new_config(modules)
+
     with open(filepath, 'w') as configfile:
         config.write(configfile)
-    print(f"New config file '{filename}' created successfully.")
+    save_info(filepath)
 
-def update_all_globals():
-    refresh.run()
+
+def new_config(modules: list[ModuleType]) -> ConfigParser:
+    config = ConfigParser()
+    sections = {
+        'general': ['source_paths', 'target_path', 'output_path'],
+        'misc': ['force_download', 'skip_download', 'headless', 'log_level'],
+        'execution': ['execution_providers', 'execution_thread_count', 'execution_queue_count'],
+        'memory': ['video_memory_strategy', 'system_memory_limit'],
+        'face_analyser': ['face_analyser_order', 'face_analyser_age', 'face_analyser_gender', 
+                        'face_detector_model', 'face_detector_size', 'face_detector_score', 
+                        'face_landmarker_score'],
+        'face_selector': ['face_selector_mode', 'reference_face_position', 'reference_face_distance', 
+                        'reference_frame_number'],
+        'face_mask': ['face_mask_types', 'face_mask_blur', 'face_mask_padding', 'face_mask_regions'],
+        'frame_extraction': ['trim_frame_start', 'trim_frame_end', 'temp_frame_format', 'keep_temp'],
+        'output_creation': ['output_image_quality', 'output_image_resolution', 'output_video_encoder', 
+                            'output_video_preset', 'output_video_quality', 'output_video_resolution', 
+                            'output_video_fps', 'skip_audio'],
+        'frame_processors': ['frame_processors', 'face_debugger_items', 'face_enhancer_model', 
+                            'face_enhancer_blend', 'face_swapper_model', 'frame_colorizer_model', 
+                            'frame_colorizer_blend', 'frame_colorizer_size', 'frame_enhancer_model', 
+                            'frame_enhancer_blend', 'lip_syncer_model'],
+        'uis': ['ui_layouts']
+    }
+
+    for module in modules:
+        for section, variables in sections.items():
+            if section not in config:
+                config[section] = {}
+            for key in variables:
+                try:
+                    value = getattr(module, key)
+                except AttributeError:
+                    continue  # Skip attributes not found in the module
+                if value is not None:
+                    if key == 'execution_providers':
+                        value = ' '.join(encode_execution_providers(value))
+                    config[section][key] = format_value(value)
+                else:
+                    config[section][key] = ''
+    return config
+
+def format_value(value) -> str:
+    if isinstance(value, list):
+        return ' '.join(map(str, value))
+        
+    elif isinstance(value, Tuple):
+        return ' '.join(map(str, value))
+    else:
+        return str(value)
+
+def create_config_from_globals_module(module) -> ConfigParser:
+    config = ConfigParser()
+    sections = {
+        'general': ['source_paths', 'target_path', 'output_path'],
+        'misc': ['force_download', 'skip_download', 'headless', 'log_level'],
+        'execution': ['execution_providers', 'execution_thread_count', 'execution_queue_count'],
+        # Add more sections and variables as needed
+    }
+    
+    for section, variables in sections.items():
+        config[section] = {}
+        for var in variables:
+            value = getattr(module, var)
+            if value is not None:
+                config[section][var] = str(value)
+    return config

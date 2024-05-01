@@ -31,8 +31,6 @@ def render() -> gradio.Blocks:
 					temp_frame.render()
 				with gradio.Blocks():
 					output_options.render()
-				with gradio.Blocks():
-					config_saving.render()	
 			with gradio.Column(scale = 2):
 				with gradio.Blocks():
 					source.render()
@@ -77,7 +75,6 @@ def listen() -> None:
 	face_masker.listen()
 	face_analyser.listen()
 	common_options.listen()
-	config_saving.listen()
 
 
 def run(ui : gradio.Blocks) -> None:

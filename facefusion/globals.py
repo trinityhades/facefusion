@@ -3,7 +3,7 @@ from typing import List, Optional
 from facefusion.typing import LogLevel, VideoMemoryStrategy, FaceSelectorMode, FaceAnalyserOrder, FaceAnalyserAge, FaceAnalyserGender, FaceMaskType, FaceMaskRegion, OutputVideoEncoder, OutputVideoPreset, FaceDetectorModel, FaceRecognizerModel, TempFrameFormat, Padding
 
 # general
-config_path: Optional[str] = None
+config_path : Optional[str] = None
 source_paths : Optional[List[str]] = None
 target_path : Optional[str] = None
 output_path : Optional[str] = None
@@ -56,6 +56,3 @@ skip_audio : Optional[bool] = None
 frame_processors : List[str] = []
 # uis
 ui_layouts : List[str] = []
-#debug
-textbox : Optional[str] = None
-active_config_file : Optional[str] = None

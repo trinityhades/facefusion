@@ -134,6 +134,8 @@ WORDING : Dict[str, Any] =\
 		'benchmark_cycles_slider': 'BENCHMARK CYCLES',
 		# common options
 		'common_options_checkbox_group': 'OPTIONS',
+		# config
+		'config_save_textbox': 'SAVE CONFIG FILE',
 		# execution
 		'execution_providers_checkbox_group': 'EXECUTION PROVIDERS',
 		# execution queue count

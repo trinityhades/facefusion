@@ -1,10 +1,8 @@
-from typing import List, Optional, Any
+from typing import Optional
 import gradio
 from facefusion.config import save_config
 import facefusion.globals
 import facefusion.choices
-import facefusion.processors.frame.globals as frameglobals
-import facefusion.processors.frame.choices as framechoices
 from facefusion import wording
 
 CONFIG_SAVE_BUTTON: Optional[gradio.Button] = None
